@@ -4,16 +4,16 @@
 namespace gemm
 {
     // general matrix addition
-    void gemaTrival(const float *A, const float *B, float *C, const int M, const int N);
+    void generalMatAdd(const float *A, const float *B, float *C, const int M, const int N);
 
     // general matrix subtraction
-    void gemsTrival(const float *A, const float *B, float *C, const int M, const int N);
+    void generalMatSub(const float *A, const float *B, float *C, const int M, const int N);
 
-    // general matrix multiplication
-    void gemmTrival(const float *A, const float *B, float *C, const int M, const int N, const int K);
+    // general matrix multiplication, trival algorithm
+    void generalMatMulTrival(const float *A, const float *B, float *C, const int M, const int N, const int K);
 
-    // general matrix multiplication
-    void gemmStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K);
+    // general matrix multiplication, Strassen algorithm
+    void generalMatMulStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K);
 
 } // namespace gemm
 

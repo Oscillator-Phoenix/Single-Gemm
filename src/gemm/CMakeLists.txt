@@ -4,5 +4,7 @@ PROJECT(gemm)
 
 ADD_LIBRARY(${PROJECT_NAME} 
             gemm.h 
-            gemm.cpp)
+            gemm.cpp
+            gemm_utils.h
+            gemm_utils.cpp)
                  
