@@ -61,7 +61,7 @@ namespace gemm::utils
                 int pos = i * N + j;
                 float err = fabs(got[pos] - expected[pos]);
 
-                if (err > 1e-3)
+                if (err > 1e-2)
                 {
                     std::printf("check failed at expcted[%d][%d]=%6.6f, got[%d][%d]=%6.6f\n", i, j, expected[pos], i, j, got[pos]);
                     return false;

@@ -11,21 +11,25 @@ int main()
     // int N = 2048;
     // int K = 2048;
 
-    // int M = 1024;
-    // int N = 1024;
-    // int K = 1024;
-
-    int M = 512;
-    int N = 512;
+    int M = 1024;
+    int N = 1024;
     int K = 1024;
+
+    // int M = 512;
+    // int N = 512;
+    // int K = 512;
+
+    // int M = 512;
+    // int N = 512;
+    // int K = 1024;
 
     // int M = 8;
     // int N = 16;
     // int K = 32;
 
-    // int M = 4;
+    // int M = 8;
     // int N = 8;
-    // int K = 2;
+    // int K = 8;
 
     float *A = new float[M * N];
     float *B = new float[N * K];

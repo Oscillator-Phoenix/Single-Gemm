@@ -115,8 +115,9 @@ namespace gemm
         }
     }
 
-    const int DimThresholdStrassen = 16;
+    const int DimThresholdStrassen = 128;
     const int ScaleThresholdStrassen = (256 * 256 * 256);
+
     const int MaxDepthStrassen = 32;
 
     void MatrixMatMulStrassen(const Matrix &A, const Matrix &B, Matrix &C, int depth)
@@ -138,18 +139,18 @@ namespace gemm
 
         const Matrix A11 = Matrix(A.data, halfM, halfN, A.stride);
         const Matrix A12 = Matrix(A.data + halfN, halfM, halfN, A.stride);
-        const Matrix A21 = Matrix(A.data + halfM * N, halfM, halfN, A.stride);
-        const Matrix A22 = Matrix(A.data + halfM * N + halfN, halfM, halfN, A.stride);
+        const Matrix A21 = Matrix(A.data + halfM * A.stride, halfM, halfN, A.stride);
+        const Matrix A22 = Matrix(A.data + halfM * A.stride + halfN, halfM, halfN, A.stride);
 
         const Matrix B11 = Matrix(B.data, halfN, halfK, B.stride);
         const Matrix B12 = Matrix(B.data + halfK, halfN, halfK, B.stride);
-        const Matrix B21 = Matrix(B.data + halfN * K, halfN, halfK, B.stride);
-        const Matrix B22 = Matrix(B.data + halfN * K + halfK, halfN, halfK, B.stride);
+        const Matrix B21 = Matrix(B.data + halfN * B.stride, halfN, halfK, B.stride);
+        const Matrix B22 = Matrix(B.data + halfN * B.stride + halfK, halfN, halfK, B.stride);
 
         Matrix C11 = Matrix(C.data, halfM, halfK, C.stride);
         Matrix C12 = Matrix(C.data + halfK, halfM, halfK, C.stride);
-        Matrix C21 = Matrix(C.data + halfM * K, halfM, halfK, C.stride);
-        Matrix C22 = Matrix(C.data + halfM * K + halfK, halfM, halfK, C.stride);
+        Matrix C21 = Matrix(C.data + halfM * C.stride, halfM, halfK, C.stride);
+        Matrix C22 = Matrix(C.data + halfM * C.stride + halfK, halfM, halfK, C.stride);
 
         int aSize = halfM * halfN;
         int bSize = halfN * halfK;
