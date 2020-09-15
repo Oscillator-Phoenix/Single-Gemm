@@ -7,8 +7,8 @@
 
 int main()
 {
-    int M = 1024;
-    int N = 2048;
+    int M = 512;
+    int N = 512;
     int K = 512;
 
     // int M = 8;

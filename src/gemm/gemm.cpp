@@ -68,12 +68,12 @@ namespace gemm
 
     const int DimThresholdStrassen = 16;
     const int ScaleThresholdStrassen = (256 * 256 * 256);
-    const int MaxRecursionDepthStrassen = 32;
+    const int MaxDepthStrassen = 32;
 
     void _generalMatMulStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K, int depth)
     {
         // evaluate costs of split
-        if (depth >= MaxRecursionDepthStrassen || M <= DimThresholdStrassen || N <= DimThresholdStrassen || K <= DimThresholdStrassen || M * N * K <= ScaleThresholdStrassen)
+        if (depth >= MaxDepthStrassen || M <= DimThresholdStrassen || N <= DimThresholdStrassen || K <= DimThresholdStrassen || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
         {
             generalMatMulTrival(A, B, C, M, N, K);
             return;
