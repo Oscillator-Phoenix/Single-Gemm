@@ -3,20 +3,106 @@
 
 namespace gemm
 {
+
+    struct Matrix
+    {
+        float *data;
+        int M;
+        int N;
+        int stride;
+
+        Matrix(float *data, const int M, const int N, const int stride)
+        {
+            this->data = data;
+            this->M = M;
+            this->N = N;
+            this->stride = stride;
+        }
+    };
+
+    void MatrixMatAdd(const Matrix &A, const Matrix &B, Matrix &C)
+    {
+        int M = A.M;
+        int N = A.N;
+
+        float *a = A.data;
+        float *b = B.data;
+        float *c = C.data;
+
+        int aStride = A.stride;
+        int bStride = B.stride;
+        int cStride = C.stride;
+
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                c[i * cStride + j] = a[i * aStride + j] + b[i * bStride + j]; // add
+            }
+        }
+    }
+
+    void MatrixMatSub(const Matrix &A, const Matrix &B, Matrix &C)
+    {
+        int M = A.M;
+        int N = A.N;
+
+        float *a = A.data;
+        float *b = B.data;
+        float *c = C.data;
+
+        int aStride = A.stride;
+        int bStride = B.stride;
+        int cStride = C.stride;
+
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                c[i * cStride + j] = a[i * aStride + j] - b[i * bStride + j]; // sub
+            }
+        }
+    }
+
+    void MatrixMatMul(const Matrix &A, const Matrix &B, Matrix &C)
+    {
+        int M = A.M;
+        int N = A.N;
+        int K = B.N;
+
+        float *a = A.data;
+        float *b = B.data;
+        float *c = C.data;
+
+        int aStride = A.stride;
+        int bStride = B.stride;
+        int cStride = C.stride;
+
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < K; j++)
+            {
+                float dot = 0.0;
+                for (int p = 0; p < N; p++)
+                {
+                    dot += a[i * aStride + p] * b[p * bStride + j];
+                }
+                c[i * cStride + j] = dot;
+            }
+        }
+    }
+
     // generalMatAdd is the funciton of general matrix addition
     // input    : A[M][N], B[M][N]
     // function : C = A+B
     // output   : C[M][N]
     void generalMatAdd(const float *A, const float *B, float *C, const int M, const int N)
     {
-        for (int i = 0; i < M; i++)
-        {
-            for (int j = 0; j < N; j++)
-            {
-                int pos = i * N + j;
-                C[pos] = A[pos] + B[pos];
-            }
-        }
+        const Matrix mA = Matrix((float *)A, M, N, N);
+        const Matrix mB = Matrix((float *)B, M, N, N);
+        Matrix mC = Matrix(C, M, N, N);
+
+        MatrixMatAdd(mA, mB, mC);
     }
 
     // generalMatSub is the funciton of general matrix subtraction
@@ -25,14 +111,11 @@ namespace gemm
     // output   : C[M][N]
     void generalMatSub(const float *A, const float *B, float *C, const int M, const int N)
     {
-        for (int i = 0; i < M; i++)
-        {
-            for (int j = 0; j < N; j++)
-            {
-                int pos = i * N + j;
-                C[pos] = A[pos] - B[pos];
-            }
-        }
+        const Matrix mA = Matrix((float *)A, M, N, N);
+        const Matrix mB = Matrix((float *)B, M, N, N);
+        Matrix mC = Matrix(C, M, N, N);
+
+        MatrixMatSub(mA, mB, mC);
     }
 
     // generalMatMulTrival is the naive version of general matrix multiplication without optimization.
@@ -41,18 +124,11 @@ namespace gemm
     // output   : C[M][K]
     void generalMatMulTrival(const float *A, const float *B, float *C, const int M, const int N, const int K)
     {
-        for (int i = 0; i < M; i++)
-        {
-            for (int j = 0; j < K; j++)
-            {
-                float dot = 0.0;
-                for (int p = 0; p < N; p++)
-                {
-                    dot += A[i * N + p] * B[p * K + j];
-                }
-                C[i * K + j] = dot;
-            }
-        }
+        const Matrix mA = Matrix((float *)A, M, N, N);
+        const Matrix mB = Matrix((float *)B, N, K, K);
+        Matrix mC = Matrix(C, M, K, K);
+
+        MatrixMatMul(mA, mB, mC);
     }
 
     void matrixCopy(float *dest, const float *src, const int M, const int N, const int destStride, const int srcStride)

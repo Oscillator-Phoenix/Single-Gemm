@@ -7,8 +7,8 @@
 
 int main()
 {
-    int M = 512;
-    int N = 512;
+    int M = 256;
+    int N = 1024;
     int K = 512;
 
     // int M = 8;
@@ -40,10 +40,10 @@ int main()
         std::cout << "================ Wrong Answer: generalMatMulStrassen check failed =================\n";
     }
 
-    gemm::utils::printMatrix(A, M, N);
-    gemm::utils::printMatrix(B, N, K);
-    gemm::utils::printMatrix(CTrival, M, K);
-    gemm::utils::printMatrix(CStrassen, M, K);
+    // gemm::utils::printMatrix(A, M, N);
+    // gemm::utils::printMatrix(B, N, K);
+    // gemm::utils::printMatrix(CTrival, M, K);
+    // gemm::utils::printMatrix(CStrassen, M, K);
 
     delete[] A;
     delete[] B;
