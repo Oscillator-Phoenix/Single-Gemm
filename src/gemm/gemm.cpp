@@ -1,9 +1,12 @@
 #include "gemm.h"
 #include "gemm_utils.h"
 
+// #include <iostream>
+
 namespace gemm
 {
 
+    // Matrix is slice of matrix data.
     struct Matrix
     {
         float *data;
@@ -64,6 +67,26 @@ namespace gemm
         }
     }
 
+    void MatrixCopy(Matrix &dest, const Matrix &src)
+    {
+        int M = dest.M;
+        int N = dest.N;
+
+        float *_dest = dest.data;
+        float *_src = src.data;
+
+        int destStride = dest.stride;
+        int srcStride = src.stride;
+
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                _dest[i * destStride + j] = _src[i * srcStride + j]; // copy
+            }
+        }
+    }
+
     void MatrixMatMul(const Matrix &A, const Matrix &B, Matrix &C)
     {
         int M = A.M;
@@ -92,10 +115,141 @@ namespace gemm
         }
     }
 
-    // generalMatAdd is the funciton of general matrix addition
-    // input    : A[M][N], B[M][N]
-    // function : C = A+B
-    // output   : C[M][N]
+    const int DimThresholdStrassen = 16;
+    const int ScaleThresholdStrassen = (256 * 256 * 256);
+    const int MaxDepthStrassen = 32;
+
+    void MatrixMatMulStrassen(const Matrix &A, const Matrix &B, Matrix &C, int depth)
+    {
+        int M = A.M;
+        int N = A.N;
+        int K = B.N;
+
+        // evaluate costs of split
+        if (depth >= MaxDepthStrassen || M <= DimThresholdStrassen || N <= DimThresholdStrassen || K <= DimThresholdStrassen || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
+        {
+            MatrixMatMul(A, B, C);
+            return;
+        }
+
+        int halfM = M / 2;
+        int halfN = N / 2;
+        int halfK = K / 2;
+
+        const Matrix A11 = Matrix(A.data, halfM, halfN, A.stride);
+        const Matrix A12 = Matrix(A.data + halfN, halfM, halfN, A.stride);
+        const Matrix A21 = Matrix(A.data + halfM * N, halfM, halfN, A.stride);
+        const Matrix A22 = Matrix(A.data + halfM * N + halfN, halfM, halfN, A.stride);
+
+        const Matrix B11 = Matrix(B.data, halfN, halfK, B.stride);
+        const Matrix B12 = Matrix(B.data + halfK, halfN, halfK, B.stride);
+        const Matrix B21 = Matrix(B.data + halfN * K, halfN, halfK, B.stride);
+        const Matrix B22 = Matrix(B.data + halfN * K + halfK, halfN, halfK, B.stride);
+
+        Matrix C11 = Matrix(C.data, halfM, halfK, C.stride);
+        Matrix C12 = Matrix(C.data + halfK, halfM, halfK, C.stride);
+        Matrix C21 = Matrix(C.data + halfM * K, halfM, halfK, C.stride);
+        Matrix C22 = Matrix(C.data + halfM * K + halfK, halfM, halfK, C.stride);
+
+        int aSize = halfM * halfN;
+        int bSize = halfN * halfK;
+        int cSize = halfM * halfK;
+
+        float *_tmpA = new float[aSize];
+        float *_tmpB = new float[bSize];
+        Matrix tmpA = Matrix(_tmpA, halfM, halfN, halfN);
+        Matrix tmpB = Matrix(_tmpB, halfN, halfK, halfK);
+
+        float *_tmpM1 = new float[cSize];
+        float *_tmpM2 = new float[cSize];
+        float *_tmpM3 = new float[cSize];
+        float *_tmpM4 = new float[cSize];
+        float *_tmpM5 = new float[cSize];
+
+        Matrix M1 = Matrix(_tmpM1, halfM, halfK, halfK);
+        Matrix M4 = Matrix(_tmpM2, halfM, halfK, halfK);
+        Matrix M5 = Matrix(_tmpM3, halfM, halfK, halfK);
+        Matrix M7 = Matrix(_tmpM4, halfM, halfK, halfK);
+        Matrix M3 = Matrix(_tmpM5, halfM, halfK, halfK);
+
+        {
+            // M1 = (A11 + A22) (B11 + B22)
+            MatrixMatAdd(A11, A22, tmpA);
+            MatrixMatAdd(B11, B22, tmpB);
+            MatrixMatMulStrassen(tmpA, tmpB, M1, depth + 1);
+        }
+        {
+            // M4 = A22 (B21 – B11)
+            MatrixMatSub(B21, B11, tmpB);
+            MatrixMatMulStrassen(A22, tmpB, M4, depth + 1);
+        }
+        {
+            // M5 = (A11 + A12) B22
+            MatrixMatAdd(A11, A12, tmpA);
+            MatrixMatMulStrassen(tmpA, B22, M5, depth + 1);
+        }
+        {
+            // M7 = (A12 – A22) (B21 + B22)
+            MatrixMatSub(A12, A22, tmpA);
+            MatrixMatAdd(B21, B22, tmpB);
+            MatrixMatMulStrassen(tmpA, tmpB, M7, depth + 1);
+        }
+        {
+            // M3 = A11 (B12 – B22)
+            MatrixMatSub(B12, B22, tmpB);
+            MatrixMatMulStrassen(A11, tmpB, M3, depth + 1);
+        }
+
+        {
+            // C11 = M1 + M4 – M5 + M7
+            MatrixMatAdd(M1, M4, C11);
+            MatrixMatSub(C11, M5, C11);
+            MatrixMatAdd(C11, M7, C11);
+        }
+        {
+            // C12 = M3 + M5
+            MatrixMatAdd(M3, M5, C12);
+        }
+
+        Matrix M2 = Matrix(_tmpM3, halfM, halfK, halfK); // _tmpM3 buffer user: M5 -> M2
+        Matrix M6 = Matrix(_tmpM4, halfM, halfK, halfK); // _tmpM4 buffer user: M7 -> M6
+
+        {
+            // M2 = (A21 + A22) B11
+            MatrixMatAdd(A21, A22, tmpA);
+            MatrixMatMulStrassen(tmpA, B11, M2, depth + 1);
+        }
+        {
+            // M6 = (A21 – A11) (B11 + B12)
+            MatrixMatSub(A21, A11, tmpA);
+            MatrixMatAdd(B11, B12, tmpB);
+            MatrixMatMulStrassen(tmpA, tmpB, M6, depth + 1);
+        }
+
+        {
+            // C21 = M2 + M4
+            MatrixMatAdd(M2, M4, C21);
+        }
+        {
+            // C22 = M1 – M2 + M3 + M6
+            MatrixMatSub(M1, M2, C22);
+            MatrixMatAdd(C22, M3, C22);
+            MatrixMatAdd(C22, M6, C22);
+        }
+
+        delete[] _tmpA;
+        delete[] _tmpB;
+        delete[] _tmpM1;
+        delete[] _tmpM2;
+        delete[] _tmpM3;
+        delete[] _tmpM4;
+        delete[] _tmpM5;
+    }
+
+    // -------------------------------------------------------------------------------------------------------------------------------------------------
+    // I am split line.
+    // -------------------------------------------------------------------------------------------------------------------------------------------------
+
     void generalMatAdd(const float *A, const float *B, float *C, const int M, const int N)
     {
         const Matrix mA = Matrix((float *)A, M, N, N);
@@ -105,10 +259,6 @@ namespace gemm
         MatrixMatAdd(mA, mB, mC);
     }
 
-    // generalMatSub is the funciton of general matrix subtraction
-    // input    : A[M][N], B[M][N]
-    // function : C = A-B
-    // output   : C[M][N]
     void generalMatSub(const float *A, const float *B, float *C, const int M, const int N)
     {
         const Matrix mA = Matrix((float *)A, M, N, N);
@@ -118,10 +268,6 @@ namespace gemm
         MatrixMatSub(mA, mB, mC);
     }
 
-    // generalMatMulTrival is the naive version of general matrix multiplication without optimization.
-    // input    : A[M][N], B[N][K]
-    // function : C = A*B
-    // output   : C[M][K]
     void generalMatMulTrival(const float *A, const float *B, float *C, const int M, const int N, const int K)
     {
         const Matrix mA = Matrix((float *)A, M, N, N);
@@ -131,185 +277,13 @@ namespace gemm
         MatrixMatMul(mA, mB, mC);
     }
 
-    void matrixCopy(float *dest, const float *src, const int M, const int N, const int destStride, const int srcStride)
-    {
-        for (int i = 0; i < M; i++)
-        {
-            for (int j = 0; j < N; j++)
-            {
-                dest[i * destStride + j] = src[i * srcStride + j];
-            }
-        }
-    }
-
-    const int DimThresholdStrassen = 16;
-    const int ScaleThresholdStrassen = (256 * 256 * 256);
-    const int MaxDepthStrassen = 32;
-
-    void _generalMatMulStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K, int depth)
-    {
-        // evaluate costs of split
-        if (depth >= MaxDepthStrassen || M <= DimThresholdStrassen || N <= DimThresholdStrassen || K <= DimThresholdStrassen || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
-        {
-            generalMatMulTrival(A, B, C, M, N, K);
-            return;
-        }
-
-        int halfM = M / 2;
-        int halfN = N / 2;
-        int halfK = K / 2;
-
-        int aSize = halfM * halfN;
-        int bSize = halfN * halfK;
-        int cSize = halfM * halfK;
-
-        float *A11 = new float[aSize];
-        float *A12 = new float[aSize];
-        float *A21 = new float[aSize];
-        float *A22 = new float[aSize];
-
-        float *B11 = new float[bSize];
-        float *B12 = new float[bSize];
-        float *B21 = new float[bSize];
-        float *B22 = new float[bSize];
-
-        matrixCopy(A11, A, halfM, halfN, halfN, N);
-        matrixCopy(A12, A + halfN, halfM, halfN, halfN, N);
-        matrixCopy(A21, A + halfM * N, halfM, halfN, halfN, N);
-        matrixCopy(A22, A + halfM * N + halfN, halfM, halfN, halfN, N);
-
-        // utils::printMatrix(A, M, N);
-        // utils::printMatrix(A11, halfM, halfN);
-        // utils::printMatrix(A12, halfM, halfN);
-        // utils::printMatrix(A21, halfM, halfN);
-        // utils::printMatrix(A22, halfM, halfN);
-
-        matrixCopy(B11, B, halfN, halfK, halfK, K);
-        matrixCopy(B12, B + halfK, halfN, halfK, halfK, K);
-        matrixCopy(B21, B + halfN * K, halfN, halfK, halfK, K);
-        matrixCopy(B22, B + halfN * K + halfK, halfN, halfK, halfK, K);
-
-        // utils::printMatrix(B, N, K);
-        // utils::printMatrix(B11, halfN, halfK);
-        // utils::printMatrix(B12, halfN, halfK);
-        // utils::printMatrix(B21, halfN, halfK);
-        // utils::printMatrix(B22, halfN, halfK);
-
-        float *tmpA = new float[aSize];
-        float *tmpB = new float[bSize];
-        float *tmpC = new float[cSize];
-
-        float *M1 = new float[cSize];
-        float *M2 = new float[cSize];
-        float *M3 = new float[cSize];
-        float *M4 = new float[cSize];
-        float *M5 = new float[cSize];
-        float *M6 = new float[cSize];
-        float *M7 = new float[cSize];
-
-        {
-            // M1 = (A11 + A22) (B11 + B22)
-            generalMatAdd(A11, A22, tmpA, halfM, halfN);
-            generalMatAdd(B11, B22, tmpB, halfN, halfK);
-            _generalMatMulStrassen(tmpA, tmpB, M1, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // M2 = (A21 + A22) B11
-            generalMatAdd(A21, A22, tmpA, halfM, halfN);
-            _generalMatMulStrassen(tmpA, B11, M2, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // M3 = A11 (B12 – B22)
-            generalMatSub(B12, B22, tmpB, halfN, halfK);
-            _generalMatMulStrassen(A11, tmpB, M3, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // M4 = A22 (B21 – B11)
-            generalMatSub(B21, B11, tmpB, halfN, halfK);
-            _generalMatMulStrassen(A22, tmpB, M4, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // M5 = (A11 + A12) B22
-            generalMatAdd(A11, A12, tmpA, halfM, halfN);
-            _generalMatMulStrassen(tmpA, B22, M5, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // M6 = (A21 – A11) (B11 + B12)
-            generalMatSub(A21, A11, tmpA, halfM, halfN);
-            generalMatAdd(B11, B12, tmpB, halfN, halfK);
-            _generalMatMulStrassen(tmpA, tmpB, M6, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // M7 = (A12 – A22) (B21 + B22)
-            generalMatSub(A12, A22, tmpA, halfM, halfN);
-            generalMatAdd(B21, B22, tmpB, halfN, halfK);
-            _generalMatMulStrassen(tmpA, tmpB, M7, halfM, halfN, halfK, depth + 1);
-        }
-
-        {
-            // C11 = M1 + M4 – M5 + M7
-            generalMatAdd(M1, M4, tmpC, halfM, halfK);
-            generalMatSub(tmpC, M5, tmpC, halfM, halfK);
-            generalMatAdd(tmpC, M7, tmpC, halfM, halfK);
-            matrixCopy(C, tmpC, halfM, halfK, K, halfK);
-        }
-
-        {
-            // C12 = M3 + M5
-            generalMatAdd(M3, M5, tmpC, halfM, halfK);
-            matrixCopy(C + halfK, tmpC, halfM, halfK, K, halfK);
-        }
-
-        {
-            // C21 = M2 + M4
-            generalMatAdd(M2, M4, tmpC, halfM, halfK);
-            matrixCopy(C + halfM * K, tmpC, halfM, halfK, K, halfK);
-        }
-
-        {
-            // C22 = M1 – M2 + M3 + M6
-            generalMatSub(M1, M2, tmpC, halfM, halfK);
-            generalMatAdd(tmpC, M3, tmpC, halfM, halfK);
-            generalMatAdd(tmpC, M6, tmpC, halfM, halfK);
-            matrixCopy(C + halfM * K + halfK, tmpC, halfM, halfK, K, halfK);
-        }
-
-        delete[] A11;
-        delete[] A12;
-        delete[] A21;
-        delete[] A22;
-
-        delete[] B11;
-        delete[] B12;
-        delete[] B21;
-        delete[] B22;
-
-        delete[] tmpA;
-        delete[] tmpB;
-        delete[] tmpC;
-
-        delete[] M1;
-        delete[] M2;
-        delete[] M3;
-        delete[] M4;
-        delete[] M5;
-        delete[] M6;
-        delete[] M7;
-    }
-
-    // generalMatMulStrassen implements Strassen Algorithm of general matrix multiplication.
-    // input    : A[M][N], B[N][K]
-    // function : C = A*B
-    // output   : C[M][K]
     void generalMatMulStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K)
     {
-        _generalMatMulStrassen(A, B, C, M, N, K, 0);
+        const Matrix mA = Matrix((float *)A, M, N, N);
+        const Matrix mB = Matrix((float *)B, N, K, K);
+        Matrix mC = Matrix(C, M, K, K);
+
+        MatrixMatMulStrassen(mA, mB, mC, 0);
     }
 
 } // namespace gemm

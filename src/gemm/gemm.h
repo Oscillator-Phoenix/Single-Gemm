@@ -3,16 +3,28 @@
 
 namespace gemm
 {
-    // general matrix addition
+    // generalMatAdd is the funciton of general matrix addition
+    // input    : A[M][N], B[M][N]
+    // function : C = A+B
+    // output   : C[M][N]
     void generalMatAdd(const float *A, const float *B, float *C, const int M, const int N);
 
-    // general matrix subtraction
+    // generalMatSub is the funciton of general matrix subtraction
+    // input    : A[M][N], B[M][N]
+    // function : C = A-B
+    // output   : C[M][N]
     void generalMatSub(const float *A, const float *B, float *C, const int M, const int N);
 
-    // general matrix multiplication, trival algorithm
+    // generalMatMulTrival is the naive version of general matrix multiplication without optimization.
+    // input    : A[M][N], B[N][K]
+    // function : C = A*B
+    // output   : C[M][K]
     void generalMatMulTrival(const float *A, const float *B, float *C, const int M, const int N, const int K);
 
-    // general matrix multiplication, Strassen algorithm
+    // generalMatMulStrassen implements Strassen Algorithm of general matrix multiplication.
+    // input    : A[M][N], B[N][K]
+    // function : C = A*B
+    // output   : C[M][K]
     void generalMatMulStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K);
 
 } // namespace gemm
