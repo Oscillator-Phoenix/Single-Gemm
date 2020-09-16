@@ -3,7 +3,7 @@
 
 namespace gemm::utils
 {
-    void printMatrix(const float *matrix, const int M, const int N, const int pretty = 10);
+    void printMatrix(const float *matrix, const int M, const int N, const int pretty = 8);
 
     void randomFillMatrix(float *matrix, const int M, const int N, const float a = 0.0, const float b = 1.0);
 

@@ -6,7 +6,7 @@
 namespace gemm
 {
 
-    // Matrix is slice of matrix data.
+    // Matrix is a slice of matrix data.
     struct Matrix
     {
         float *data;
@@ -87,7 +87,7 @@ namespace gemm
         }
     }
 
-    void MatrixMatMul(const Matrix &A, const Matrix &B, Matrix &C)
+    void MatrixMatMulTrival(const Matrix &A, const Matrix &B, Matrix &C)
     {
         int M = A.M;
         int N = A.N;
@@ -117,7 +117,7 @@ namespace gemm
 
     void MatrixMatMulOpt(const Matrix &A, const Matrix &B, Matrix &C)
     {
-        // opt: // cycle expand
+        // opt: cycle expand
 
         int M = A.M;
         int N = A.N;
@@ -148,11 +148,6 @@ namespace gemm
                 int p = 0;
                 float dot = 0.0;
 
-                // for (p = 0; p < N; p++)
-                // {
-                //     dot += a[i * aStride + p] * _b[j * N + p];
-                // }
-
                 for (p = 0; p + 8 < N; p += 8)
                 {
                     dot += a[i * aStride + (p + 0)] * _b[j * N + (p + 0)];
@@ -176,8 +171,8 @@ namespace gemm
         delete[] _b;
     }
 
-    const int DimThresholdStrassen = 128;
-    const int ScaleThresholdStrassen = (256 * 256 * 256);
+     const int DimThresholdStrassen = 64;
+    const int ScaleThresholdStrassen = (64 * 64 * 64);
     const int MaxDepthStrassen = 32;
 
     void MatrixMatMulStrassen(const Matrix &A, const Matrix &B, Matrix &C, int depth)
@@ -189,7 +184,7 @@ namespace gemm
         // evaluate costs of split
         if (depth >= MaxDepthStrassen || M <= DimThresholdStrassen || N <= DimThresholdStrassen || K <= DimThresholdStrassen || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
         {
-            MatrixMatMul(A, B, C);
+            MatrixMatMulOpt(A, B, C);
             return;
         }
 
@@ -335,10 +330,10 @@ namespace gemm
         const Matrix mB = Matrix((float *)B, N, K, K);
         Matrix mC = Matrix(C, M, K, K);
 
-        MatrixMatMul(mA, mB, mC);
+        MatrixMatMulTrival(mA, mB, mC);
     }
 
-    void generalMatMulTrivalOpt(const float *A, const float *B, float *C, const int M, const int N, const int K)
+    void generalMatMulOpt(const float *A, const float *B, float *C, const int M, const int N, const int K)
     {
         const Matrix mA = Matrix((float *)A, M, N, N);
         const Matrix mB = Matrix((float *)B, N, K, K);
