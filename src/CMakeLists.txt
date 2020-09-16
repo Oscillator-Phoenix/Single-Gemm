@@ -24,6 +24,17 @@ target_include_directories(${PROJECT_NAME} PUBLIC utils)
 # 添加链接库
 target_link_libraries(${PROJECT_NAME} gemm)
 
+
+# 编译选项
+target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+                       -O3
+                       >)
+
+
+# 显示 make 编译命令
+# set(CMAKE_VERBOSE_MAKEFILE ON)
+
+
 message("==============================================================")
 message("======================== Message  ============================")
 message("CMake build HPC lab 1")

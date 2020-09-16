@@ -34,6 +34,7 @@ int main()
     float *A = new float[M * N];
     float *B = new float[N * K];
     float *CTrival = new float[M * K];
+    float *CTrivalOpt = new float[M * K];
     float *CStrassen = new float[M * K];
 
     gemm::utils::randomFillMatrix(A, M, N);
@@ -43,13 +44,20 @@ int main()
     gemm::generalMatMulTrival(A, B, CTrival, M, N, K);
     ABTME("generalMatMulTrival");
 
+    ABTMS("generalMatMulTrivalOpt");
+    gemm::generalMatMulTrivalOpt(A, B, CTrivalOpt, M, N, K);
+    ABTME("generalMatMulTrivalOpt");
+    if (false == gemm::utils::checkSameMatrix(CTrival, CTrivalOpt, M, K))
+    {
+        std::cout << "============ Wrong Answer: generalMatMulTrivalOpt check failed =============\n";
+    }
+
     ABTMS("generalMatMulStrassen");
     gemm::generalMatMulStrassen(A, B, CStrassen, M, N, K);
     ABTME("generalMatMulStrassen");
-
     if (false == gemm::utils::checkSameMatrix(CTrival, CStrassen, M, K))
     {
-        std::cout << "================ Wrong Answer: generalMatMulStrassen check failed =================\n";
+        std::cout << "============ Wrong Answer: generalMatMulStrassen check failed ===============\n";
     }
 
     // gemm::utils::printMatrix(A, M, N);

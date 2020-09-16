@@ -21,6 +21,12 @@ namespace gemm
     // output   : C[M][K]
     void generalMatMulTrival(const float *A, const float *B, float *C, const int M, const int N, const int K);
 
+    // generalMatMulTrivalOpt is the naive version of general matrix multiplication with soft optimization.
+    // input    : A[M][N], B[N][K]
+    // function : C = A*B
+    // output   : C[M][K]
+    void generalMatMulTrivalOpt(const float *A, const float *B, float *C, const int M, const int N, const int K);
+
     // generalMatMulStrassen implements Strassen Algorithm of general matrix multiplication.
     // input    : A[M][N], B[N][K]
     // function : C = A*B

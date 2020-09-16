@@ -115,9 +115,53 @@ namespace gemm
         }
     }
 
+    void MatrixMatMulOpt(const Matrix &A, const Matrix &B, Matrix &C)
+    {
+        // opt: // cycle expand
+
+        int M = A.M;
+        int N = A.N;
+        int K = B.N;
+
+        float *a = A.data;
+        float *b = B.data;
+        float *c = C.data;
+
+        int aStride = A.stride;
+        int bStride = B.stride;
+        int cStride = C.stride;
+
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < K; j++)
+            {
+                int p = 0;
+                float dot = 0.0;
+
+                for (p = 0; p + 8 < N; p += 8)
+                {
+                    dot += a[i * aStride + (p + 0)] * b[(p + 0) * bStride + j];
+                    dot += a[i * aStride + (p + 1)] * b[(p + 1) * bStride + j];
+                    dot += a[i * aStride + (p + 2)] * b[(p + 2) * bStride + j];
+                    dot += a[i * aStride + (p + 3)] * b[(p + 3) * bStride + j];
+                    dot += a[i * aStride + (p + 4)] * b[(p + 4) * bStride + j];
+                    dot += a[i * aStride + (p + 5)] * b[(p + 5) * bStride + j];
+                    dot += a[i * aStride + (p + 6)] * b[(p + 6) * bStride + j];
+                    dot += a[i * aStride + (p + 7)] * b[(p + 7) * bStride + j];
+                }
+
+                for (; p < N; p++)
+                {
+                    dot += a[i * aStride + p] * b[p * bStride + j];
+                }
+
+                c[i * cStride + j] = dot;
+            }
+        }
+    }
+
     const int DimThresholdStrassen = 128;
     const int ScaleThresholdStrassen = (256 * 256 * 256);
-
     const int MaxDepthStrassen = 32;
 
     void MatrixMatMulStrassen(const Matrix &A, const Matrix &B, Matrix &C, int depth)
@@ -276,6 +320,15 @@ namespace gemm
         Matrix mC = Matrix(C, M, K, K);
 
         MatrixMatMul(mA, mB, mC);
+    }
+
+    void generalMatMulTrivalOpt(const float *A, const float *B, float *C, const int M, const int N, const int K)
+    {
+        const Matrix mA = Matrix((float *)A, M, N, N);
+        const Matrix mB = Matrix((float *)B, N, K, K);
+        Matrix mC = Matrix(C, M, K, K);
+
+        MatrixMatMulOpt(mA, mB, mC);
     }
 
     void generalMatMulStrassen(const float *A, const float *B, float *C, const int M, const int N, const int K)
