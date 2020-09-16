@@ -28,7 +28,7 @@ int main()
     // int K = 32;
 
     // int M = 8;
-    // int N = 8;
+    // int N = 4;
     // int K = 8;
 
     float *A = new float[M * N];

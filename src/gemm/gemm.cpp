@@ -124,12 +124,22 @@ namespace gemm
         int K = B.N;
 
         float *a = A.data;
-        float *b = B.data;
         float *c = C.data;
+        float *b = B.data;
 
         int aStride = A.stride;
         int bStride = B.stride;
         int cStride = C.stride;
+
+        // copy b to _b with cols-main memory layout
+        float *_b = new float[K * N];
+        for (int i = 0; i < K; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                _b[i * N + j] = b[j * bStride + i];
+            }
+        }
 
         for (int i = 0; i < M; i++)
         {
@@ -138,26 +148,32 @@ namespace gemm
                 int p = 0;
                 float dot = 0.0;
 
+                // for (p = 0; p < N; p++)
+                // {
+                //     dot += a[i * aStride + p] * _b[j * N + p];
+                // }
+
                 for (p = 0; p + 8 < N; p += 8)
                 {
-                    dot += a[i * aStride + (p + 0)] * b[(p + 0) * bStride + j];
-                    dot += a[i * aStride + (p + 1)] * b[(p + 1) * bStride + j];
-                    dot += a[i * aStride + (p + 2)] * b[(p + 2) * bStride + j];
-                    dot += a[i * aStride + (p + 3)] * b[(p + 3) * bStride + j];
-                    dot += a[i * aStride + (p + 4)] * b[(p + 4) * bStride + j];
-                    dot += a[i * aStride + (p + 5)] * b[(p + 5) * bStride + j];
-                    dot += a[i * aStride + (p + 6)] * b[(p + 6) * bStride + j];
-                    dot += a[i * aStride + (p + 7)] * b[(p + 7) * bStride + j];
+                    dot += a[i * aStride + (p + 0)] * _b[j * N + (p + 0)];
+                    dot += a[i * aStride + (p + 1)] * _b[j * N + (p + 1)];
+                    dot += a[i * aStride + (p + 2)] * _b[j * N + (p + 2)];
+                    dot += a[i * aStride + (p + 3)] * _b[j * N + (p + 3)];
+                    dot += a[i * aStride + (p + 4)] * _b[j * N + (p + 4)];
+                    dot += a[i * aStride + (p + 5)] * _b[j * N + (p + 5)];
+                    dot += a[i * aStride + (p + 6)] * _b[j * N + (p + 6)];
+                    dot += a[i * aStride + (p + 7)] * _b[j * N + (p + 7)];
                 }
-
                 for (; p < N; p++)
                 {
-                    dot += a[i * aStride + p] * b[p * bStride + j];
+                    dot += a[i * aStride + p] * _b[j * N + p];
                 }
 
                 c[i * cStride + j] = dot;
             }
         }
+
+        delete[] _b;
     }
 
     const int DimThresholdStrassen = 128;
