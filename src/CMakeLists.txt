@@ -10,6 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # 添加子目录
 add_subdirectory(gemm)
+add_subdirectory(sparse)
+
 
 
 # 指定生成目标
@@ -19,10 +21,14 @@ add_executable(${PROJECT_NAME} main.cpp)
 # 包含头文件
 target_include_directories(${PROJECT_NAME} PUBLIC gemm)
 target_include_directories(${PROJECT_NAME} PUBLIC utils)
+target_include_directories(${PROJECT_NAME} PUBLIC sparse)
+
 
 
 # 添加链接库
 target_link_libraries(${PROJECT_NAME} gemm)
+target_link_libraries(${PROJECT_NAME} sparse)
+
 
 
 # 编译选项
