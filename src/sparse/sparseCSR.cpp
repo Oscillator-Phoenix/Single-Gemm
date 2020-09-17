@@ -344,7 +344,8 @@ namespace sparse
         return SparseCSR();
     }
 
-    // O(nzz)
+    // C = AB
+    // O( max(A.rows, A.nnz) * B.cols )
     SparseCSR SparseCSR::Mul(const SparseCSR &b)
     {
         // std::assert(this->cols == b.rows);
