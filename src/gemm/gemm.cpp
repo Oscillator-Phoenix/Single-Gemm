@@ -171,7 +171,7 @@ namespace gemm
         delete[] _b;
     }
 
-     const int DimThresholdStrassen = 64;
+    const int DimThresholdStrassen = 64;
     const int ScaleThresholdStrassen = (64 * 64 * 64);
     const int MaxDepthStrassen = 32;
 
