@@ -115,9 +115,9 @@ namespace gemm
         }
     }
 
-    void MatrixMatMulOpt(const Matrix &A, const Matrix &B, Matrix &C)
+    void MatrixMatMulOptAborted(const Matrix &A, const Matrix &B, Matrix &C)
     {
-        // opt: cycle expand
+        // opt: memory reorder, cycle unroll
 
         int M = A.M;
         int N = A.N;
@@ -169,6 +169,44 @@ namespace gemm
         }
 
         delete[] _b;
+    }
+
+    void MatrixMatMulOpt(const Matrix &A, const Matrix &B, Matrix &C)
+    {
+        // opt: cycle reorder, cycle unroll
+
+        int M = A.M;
+        int N = A.N;
+        int K = B.N;
+
+        float *a = A.data;
+        float *b = B.data;
+        float *c = C.data;
+
+        int aStride = A.stride;
+        int bStride = B.stride;
+        int cStride = C.stride;
+
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < K; j++)
+            {
+                c[i * cStride + j] = 0.0;
+            }
+        }
+
+        for (int i = 0; i < M; i++) // loop 1
+        {
+            for (int p = 0; p < N; p++) // loop 2
+            {
+                const float aElement = a[i * aStride + p];
+#pragma unroll 8
+                for (int j = 0; j < K; j++) // loop 3
+                {
+                    c[i * cStride + j] += aElement * b[p * bStride + j];
+                }
+            }
+        }
     }
 
     const int DimThresholdStrassen = 64;
