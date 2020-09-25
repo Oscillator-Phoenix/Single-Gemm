@@ -1,7 +1,7 @@
 #include "gemm.h"
 #include "gemm_utils.h"
 
-// #include <iostream>
+#include <algorithm>
 
 namespace gemm
 {
@@ -38,6 +38,7 @@ namespace gemm
 
         for (int i = 0; i < M; i++)
         {
+#pragma unroll 8
             for (int j = 0; j < N; j++)
             {
                 c[i * cStride + j] = a[i * aStride + j] + b[i * bStride + j]; // add
@@ -60,6 +61,7 @@ namespace gemm
 
         for (int i = 0; i < M; i++)
         {
+#pragma unroll 8
             for (int j = 0; j < N; j++)
             {
                 c[i * cStride + j] = a[i * aStride + j] - b[i * bStride + j]; // sub
@@ -84,6 +86,14 @@ namespace gemm
             {
                 _dest[i * destStride + j] = _src[i * srcStride + j]; // copy
             }
+        }
+    }
+
+    void MatrixFill(Matrix &dest, const float val)
+    {
+        for (int i = 0; i < dest.M; i++)
+        {
+            std::fill_n(dest.data + i * dest.stride, dest.N, val);
         }
     }
 
@@ -115,63 +125,7 @@ namespace gemm
         }
     }
 
-    void MatrixMatMulOptAborted(const Matrix &A, const Matrix &B, Matrix &C)
-    {
-        // opt: memory reorder, cycle unroll
-
-        int M = A.M;
-        int N = A.N;
-        int K = B.N;
-
-        float *a = A.data;
-        float *c = C.data;
-        float *b = B.data;
-
-        int aStride = A.stride;
-        int bStride = B.stride;
-        int cStride = C.stride;
-
-        // copy b to _b with cols-main memory layout
-        float *_b = new float[K * N];
-        for (int i = 0; i < K; i++)
-        {
-            for (int j = 0; j < N; j++)
-            {
-                _b[i * N + j] = b[j * bStride + i];
-            }
-        }
-
-        for (int i = 0; i < M; i++)
-        {
-            for (int j = 0; j < K; j++)
-            {
-                int p = 0;
-                float dot = 0.0;
-
-                for (p = 0; p + 8 < N; p += 8)
-                {
-                    dot += a[i * aStride + (p + 0)] * _b[j * N + (p + 0)];
-                    dot += a[i * aStride + (p + 1)] * _b[j * N + (p + 1)];
-                    dot += a[i * aStride + (p + 2)] * _b[j * N + (p + 2)];
-                    dot += a[i * aStride + (p + 3)] * _b[j * N + (p + 3)];
-                    dot += a[i * aStride + (p + 4)] * _b[j * N + (p + 4)];
-                    dot += a[i * aStride + (p + 5)] * _b[j * N + (p + 5)];
-                    dot += a[i * aStride + (p + 6)] * _b[j * N + (p + 6)];
-                    dot += a[i * aStride + (p + 7)] * _b[j * N + (p + 7)];
-                }
-                for (; p < N; p++)
-                {
-                    dot += a[i * aStride + p] * _b[j * N + p];
-                }
-
-                c[i * cStride + j] = dot;
-            }
-        }
-
-        delete[] _b;
-    }
-
-    void MatrixMatMulOpt(const Matrix &A, const Matrix &B, Matrix &C)
+    void MatrixMatMulOptWithoutBlock(const Matrix &A, const Matrix &B, Matrix &C)
     {
         // opt: cycle reorder, cycle unroll
 
@@ -187,16 +141,11 @@ namespace gemm
         int bStride = B.stride;
         int cStride = C.stride;
 
-        for (int i = 0; i < M; i++)
-        {
-            for (int j = 0; j < K; j++)
-            {
-                c[i * cStride + j] = 0.0;
-            }
-        }
+        MatrixFill(C, 0.0);
 
         for (int i = 0; i < M; i++) // loop 1
         {
+#pragma unroll 8
             for (int p = 0; p < N; p++) // loop 2
             {
                 const float aElement = a[i * aStride + p];
@@ -209,7 +158,40 @@ namespace gemm
         }
     }
 
-    const int DimThresholdStrassen = 64;
+    const int BlockDim = 64; // empirical value
+    float _globalBlockBuffer[BlockDim * BlockDim];
+    Matrix _globalBlockTmp = Matrix(_globalBlockBuffer, BlockDim, BlockDim, BlockDim);
+
+    void MatrixMatMulOpt(const Matrix &A, const Matrix &B, Matrix &C)
+    {
+        // opt: divide block
+        int M = A.M;
+        int N = A.N;
+        int K = B.N;
+
+        int blockM = M / BlockDim;
+        int blockN = N / BlockDim;
+        int blockK = K / BlockDim;
+
+        for (int i = 0; i < blockM; i++)
+        {
+            for (int j = 0; j < blockK; j++)
+            {
+                Matrix bC = Matrix(C.data + (i * C.stride + j) * BlockDim, BlockDim, BlockDim, C.stride);
+                MatrixFill(bC, 0.0);
+
+                for (int p = 0; p < blockN; p++)
+                {
+                    const Matrix bA = Matrix(A.data + (i * A.stride + p) * BlockDim, BlockDim, BlockDim, A.stride);
+                    const Matrix bB = Matrix(B.data + (p * B.stride + j) * BlockDim, BlockDim, BlockDim, B.stride);
+
+                    MatrixMatMulOptWithoutBlock(bA, bB, _globalBlockTmp);
+                    MatrixMatAdd(bC, _globalBlockTmp, bC);
+                }
+            }
+        }
+    }
+
     const int ScaleThresholdStrassen = (64 * 64 * 64);
     const int MaxDepthStrassen = 32;
 
@@ -220,7 +202,7 @@ namespace gemm
         int K = B.N;
 
         // evaluate costs of split
-        if (depth >= MaxDepthStrassen || M <= DimThresholdStrassen || N <= DimThresholdStrassen || K <= DimThresholdStrassen || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
+        if (depth >= MaxDepthStrassen || M <= BlockDim || N <= BlockDim || K <= BlockDim || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
         {
             MatrixMatMulOpt(A, B, C);
             return;

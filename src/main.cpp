@@ -20,6 +20,14 @@ void printMessageLine(std::string s)
 
 void TestGemm()
 {
+    // int M = 256;
+    // int N = 512;
+    // int K = 128;
+
+    // int M = 1024;
+    // int N = 512;
+    // int K = 2048;
+
     int M = 1024;
     int N = 1024;
     int K = 1024;
@@ -27,6 +35,10 @@ void TestGemm()
     // int M = 2048;
     // int N = 2048;
     // int K = 2048;
+
+    // int M = 4096;
+    // int N = 4096;
+    // int K = 4096;
 
     printSplitLine();
     std::printf("general matrix multiplication: A[%d][%d] * B[%d][%d] = C[%d][%d]\n", M, N, N, K, M, K);
