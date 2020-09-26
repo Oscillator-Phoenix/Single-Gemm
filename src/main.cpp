@@ -20,9 +20,9 @@ void printMessageLine(std::string s)
 
 void TestGemm()
 {
-    int M = 256;
-    int N = 512;
-    int K = 256;
+    // int M = 256;
+    // int N = 512;
+    // int K = 256;
 
     // int M = 1024;
     // int N = 512;

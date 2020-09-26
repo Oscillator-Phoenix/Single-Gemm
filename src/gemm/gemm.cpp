@@ -179,17 +179,17 @@ namespace gemm
         int blockN = N / BlockDim;
         int blockK = K / BlockDim;
 
+        MatrixFill(C, 0.0);
+
         for (int i = 0; i < blockM; i++)
         {
-            for (int j = 0; j < blockK; j++)
+            for (int p = 0; p < blockN; p++)
             {
-                Matrix bC = Matrix(C.data + (i * C.stride + j) * BlockDim, BlockDim, BlockDim, C.stride);
-                MatrixFill(bC, 0.0);
-
-                for (int p = 0; p < blockN; p++)
+                const Matrix bA = Matrix(A.data + (i * A.stride + p) * BlockDim, BlockDim, BlockDim, A.stride);
+                for (int j = 0; j < blockK; j++)
                 {
-                    const Matrix bA = Matrix(A.data + (i * A.stride + p) * BlockDim, BlockDim, BlockDim, A.stride);
                     const Matrix bB = Matrix(B.data + (p * B.stride + j) * BlockDim, BlockDim, BlockDim, B.stride);
+                    Matrix bC = Matrix(C.data + (i * C.stride + j) * BlockDim, BlockDim, BlockDim, C.stride);
 
                     MatrixMatMulOptWithoutBlock(bA, bB, _globalBlockTmp);
                     MatrixMatAdd(bC, _globalBlockTmp, bC);
