@@ -28,17 +28,17 @@ void TestGemm()
     // int N = 512;
     // int K = 2048;
 
-    // int M = 1024;
-    // int N = 1024;
-    // int K = 1024;
+    int M = 1024;
+    int N = 1024;
+    int K = 1024;
 
     // int M = 2048;
     // int N = 2048;
     // int K = 2048;
 
-    int M = 4096;
-    int N = 4096;
-    int K = 4096;
+    // int M = 4096;
+    // int N = 4096;
+    // int K = 4096;
 
     printSplitLine();
     std::printf("general matrix multiplication: A[%d][%d] * B[%d][%d] = C[%d][%d]\n", M, N, N, K, M, K);
@@ -56,7 +56,7 @@ void TestGemm()
     printMessageLine("Used Real Time");
 
     ABTMS("generalMatMulTrival");
-    // gemm::generalMatMulTrival(A, B, CTrival, M, N, K);
+    gemm::generalMatMulTrival(A, B, CTrival, M, N, K);
     ABTME("generalMatMulTrival");
 
     ABTMS("generalMatMulOpt");
