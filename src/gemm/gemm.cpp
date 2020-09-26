@@ -5,6 +5,13 @@
 
 namespace gemm
 {
+    // divide block opt
+    const int BlockDim = 64; // empirical value
+
+    // Strassen opt
+    const int DimThreshold = 64;
+    const int ScaleThreshold = (64 * 64 * 64);
+    const int MaxDepth = 16;
 
     // Matrix is a slice of matrix data.
     struct Matrix
@@ -158,7 +165,6 @@ namespace gemm
         }
     }
 
-    const int BlockDim = 64; // empirical value
     float _globalBlockBuffer[BlockDim * BlockDim];
     Matrix _globalBlockTmp = Matrix(_globalBlockBuffer, BlockDim, BlockDim, BlockDim);
 
@@ -192,9 +198,6 @@ namespace gemm
         }
     }
 
-    const int ScaleThresholdStrassen = (64 * 64 * 64);
-    const int MaxDepthStrassen = 32;
-
     void MatrixMatMulStrassen(const Matrix &A, const Matrix &B, Matrix &C, int depth)
     {
         int M = A.M;
@@ -202,7 +205,7 @@ namespace gemm
         int K = B.N;
 
         // evaluate costs of split
-        if (depth >= MaxDepthStrassen || M <= BlockDim || N <= BlockDim || K <= BlockDim || M * N * K <= ScaleThresholdStrassen || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
+        if (depth >= MaxDepth || M <= DimThreshold || N <= DimThreshold || K <= DimThreshold || (M * N * K) <= ScaleThreshold || !(M % 2 == 0 && N % 2 == 0 && K % 2 == 0))
         {
             MatrixMatMulOpt(A, B, C);
             return;
