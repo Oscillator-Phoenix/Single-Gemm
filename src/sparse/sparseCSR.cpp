@@ -52,6 +52,8 @@ namespace sparse
         out << "\n";
 
         delete[] buf;
+
+        return out;
     }
 
     SparseCSR::SparseCSR()

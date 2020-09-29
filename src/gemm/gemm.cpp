@@ -45,7 +45,6 @@ namespace gemm
 
         for (int i = 0; i < M; i++)
         {
-#pragma unroll 8
             for (int j = 0; j < N; j++)
             {
                 c[i * cStride + j] = a[i * aStride + j] + b[i * bStride + j]; // add
@@ -68,7 +67,6 @@ namespace gemm
 
         for (int i = 0; i < M; i++)
         {
-#pragma unroll 8
             for (int j = 0; j < N; j++)
             {
                 c[i * cStride + j] = a[i * aStride + j] - b[i * bStride + j]; // sub
@@ -132,14 +130,9 @@ namespace gemm
         }
     }
 
-    void MatrixMatMulOptWithoutBlock(const Matrix &A, const Matrix &B, Matrix &C)
+    void __MatrixMatMulBlockDim(const Matrix &A, const Matrix &B, Matrix &C)
     {
         // opt: cycle reorder, cycle unroll
-
-        int M = A.M;
-        int N = A.N;
-        int K = B.N;
-
         float *a = A.data;
         float *b = B.data;
         float *c = C.data;
@@ -150,14 +143,13 @@ namespace gemm
 
         MatrixFill(C, 0.0);
 
-        for (int i = 0; i < M; i++) // loop 1
+        for (int i = 0; i < BlockDim; i++) // loop 1
         {
-#pragma unroll 8
-            for (int p = 0; p < N; p++) // loop 2
+            for (int p = 0; p < BlockDim; p++) // loop 2
             {
                 const float aElement = a[i * aStride + p];
-#pragma unroll 8
-                for (int j = 0; j < K; j++) // loop 3
+
+                for (int j = 0; j < BlockDim; j++) // loop 3
                 {
                     c[i * cStride + j] += aElement * b[p * bStride + j];
                 }
@@ -179,6 +171,10 @@ namespace gemm
         int blockN = N / BlockDim;
         int blockK = K / BlockDim;
 
+        int aStride = A.stride;
+        int bStride = B.stride;
+        int cStride = C.stride;
+
         MatrixFill(C, 0.0);
 
         for (int i = 0; i < blockM; i++)
@@ -191,7 +187,7 @@ namespace gemm
                     const Matrix bB = Matrix(B.data + (p * B.stride + j) * BlockDim, BlockDim, BlockDim, B.stride);
                     Matrix bC = Matrix(C.data + (i * C.stride + j) * BlockDim, BlockDim, BlockDim, C.stride);
 
-                    MatrixMatMulOptWithoutBlock(bA, bB, _globalBlockTmp);
+                    __MatrixMatMulBlockDim(bA, bB, _globalBlockTmp);
                     MatrixMatAdd(bC, _globalBlockTmp, bC);
                 }
             }
